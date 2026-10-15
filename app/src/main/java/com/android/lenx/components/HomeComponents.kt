@@ -76,7 +76,7 @@ class HomeComponents {
     }
 
     @Composable
-    fun ConnectionPanel(ipAddress: String, onIpChange: (String) -> Unit, isConnected: Boolean, onConnectionToggle: () -> Unit) {
+    fun ConnectionPanel(ipAddress: String, onIpChange: (String) -> Unit, isConnected: Boolean, onConnectionToggle: () -> Unit, enabled: Boolean) {
         Card(shape = RoundedCornerShape(16.dp), colors = CardDefaults.cardColors(containerColor = CardColor), border = CardDefaults.outlinedCardBorder(true)) {
             Column(modifier = Modifier.padding(16.dp)) {
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
@@ -89,7 +89,7 @@ class HomeComponents {
                 }
                 Spacer(modifier = Modifier.height(16.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    OutlinedTextField(value = ipAddress, onValueChange = onIpChange, placeholder = {Text(text = "PC IP Address", color = Color.Gray)}, singleLine = true, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri), colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = PurpleAccent, unfocusedBorderColor = Color.White.copy(alpha = 0.1f), focusedContainerColor = BgColor, unfocusedContainerColor = BgColor, focusedTextColor = Color.White, unfocusedTextColor = Color.White), modifier = Modifier.weight(1f).height(50.dp), shape = RoundedCornerShape(12.dp))
+                    OutlinedTextField(value = ipAddress, onValueChange = onIpChange, enabled = enabled, placeholder = {Text(text = "PC IP Address", color = Color.Gray)}, singleLine = true, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri), colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = PurpleAccent, unfocusedBorderColor = Color.White.copy(alpha = 0.1f), focusedContainerColor = BgColor, unfocusedContainerColor = BgColor, focusedTextColor = Color.White, unfocusedTextColor = Color.White), modifier = Modifier.weight(1f).height(50.dp), shape = RoundedCornerShape(12.dp))
                     Spacer(modifier = Modifier.width(8.dp))
                     Button(onClick = onConnectionToggle, colors = ButtonDefaults.buttonColors(containerColor = if (isConnected) Color(0xFF4A4458) else PurpleAccent, contentColor = if (isConnected) PurpleAccent else PurpleDark), modifier = Modifier.height(50.dp), shape = RoundedCornerShape(12.dp)) {
                         Text(text = if (isConnected) "Disconnect" else "Connect", fontWeight = FontWeight.Bold)

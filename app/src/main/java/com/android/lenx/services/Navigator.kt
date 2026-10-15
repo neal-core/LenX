@@ -14,13 +14,14 @@ sealed class Screen(val route: String) {
 }
 
 @Composable
-fun AppNavigator(isConnected: Boolean, exposePort: (String) -> Unit) {
+fun AppNavigator(isConnected: Boolean, exposePort: (String) -> Unit, disconnect: () -> Unit) {
     val navController = rememberNavController()
     NavHost(navController = navController, startDestination = Screen.Home.route) {
         composable(Screen.Home.route) {
             HomeScreen(
                 routeSettings = { navController.navigate(Screen.Settings.route) },
-                exposePort = exposePort
+                exposePort = exposePort,
+                disconnect = disconnect
             )
         }
         composable(Screen.Settings.route) {

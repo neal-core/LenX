@@ -34,7 +34,13 @@ class TcpService : Service() {
     }
 
     override fun onDestroy() {
-        socket?.close()
+        try {
+            socket?.close();
+            socket = null;
+        } catch (e: Exception) {
+            e.printStackTrace();
+        }
+        MessageBus.send("disconnected");
         super.onDestroy()
     }
 
@@ -49,13 +55,15 @@ class TcpService : Service() {
                 if (ipAddress.isEmpty()) {
                     return@Thread
                 }
-                socket = Socket(ipAddress, 8000)
-                if (socket!!.isConnected) {
+                val currentSock = Socket(ipAddress, 8000);
+                socket = currentSock
+                if (currentSock.isConnected) {
                     MessageBus.send("connected")
                 } else {
-                    MessageBus.send("disconnected")
+                    MessageBus.send("disconnected");
+                    return@Thread;
                 }
-                val input = socket!!.getInputStream()
+                val input = currentSock.getInputStream()
                 val buffer = ByteArray(1024)
                 while (true) {
                     val bytesRead = input.read(buffer)

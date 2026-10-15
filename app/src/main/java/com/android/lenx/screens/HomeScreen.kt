@@ -52,7 +52,7 @@ import com.android.lenx.ui.theme.RedDisconnected
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun HomeScreen(routeSettings: () -> Unit, exposePort: (String) -> Unit) {
+fun HomeScreen(routeSettings: () -> Unit, exposePort: (String) -> Unit, disconnect: () -> Unit) {
     var ipAddress by remember { mutableStateOf("192.168.1.5") }
     var isConnected by remember { mutableStateOf(false) };
     var isLocked by remember { mutableStateOf(false) };
@@ -75,9 +75,12 @@ fun HomeScreen(routeSettings: () -> Unit, exposePort: (String) -> Unit) {
                 homeComponents.ConnectionPanel(
                 ipAddress = ipAddress, onIpChange = { ipAddress = it },
                 isConnected = isConnected,
+                    enabled = !isConnected,
                 onConnectionToggle = {
-                    if (!isConnected) {
-                        exposePort(ipAddress)
+                    if (isConnected) {
+                        disconnect();
+                    } else {
+                        exposePort(ipAddress);
                     }
                     isConnected = !isConnected
                 }

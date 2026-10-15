@@ -55,6 +55,10 @@ class MainActivity : ComponentActivity() {
                 }
                 AppNavigator(
                     isConnected = connected,
+                    disconnect = {
+                        val intent = Intent(this, TcpService::class.java);
+                        context.stopService(intent);
+                    },
                     exposePort = {
                         if (ContextCompat.checkSelfPermission(
                                 context,
