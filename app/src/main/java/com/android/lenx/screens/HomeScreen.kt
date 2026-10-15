@@ -52,9 +52,9 @@ import com.android.lenx.ui.theme.RedDisconnected
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun HomeScreen(routeSettings: () -> Unit, exposePort: (String) -> Unit, disconnect: () -> Unit) {
+fun HomeScreen(routeSettings: () -> Unit, exposePort: (String) -> Unit, disconnect: () -> Unit, isConnected: Boolean) {
     var ipAddress by remember { mutableStateOf("192.168.1.5") }
-    var isConnected by remember { mutableStateOf(false) };
+//    var isConnected by remember { mutableStateOf(false) };
     var isLocked by remember { mutableStateOf(false) };
     val homeComponents: HomeComponents = HomeComponents();
     Scaffold(modifier = Modifier.fillMaxSize(), topBar = {
@@ -82,7 +82,6 @@ fun HomeScreen(routeSettings: () -> Unit, exposePort: (String) -> Unit, disconne
                     } else {
                         exposePort(ipAddress);
                     }
-                    isConnected = !isConnected
                 }
             )
             Spacer(modifier = Modifier.height(32.dp))

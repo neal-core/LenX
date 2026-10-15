@@ -21,6 +21,7 @@ fun AppNavigator(isConnected: Boolean, exposePort: (String) -> Unit, disconnect:
             HomeScreen(
                 routeSettings = { navController.navigate(Screen.Settings.route) },
                 exposePort = exposePort,
+                isConnected = isConnected,
                 disconnect = disconnect
             )
         }

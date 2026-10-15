@@ -49,7 +49,7 @@ class MainActivity : ComponentActivity() {
                 LaunchedEffect(Unit) {
                     MessageBus.messages.collect { message ->
                         receivedMsg = message
-                        connected = message != "disconnected" && message != "Waiting For PC..."
+                        connected = if (message == "connected") true else if (message == "disconnected") false else connected;
                         if (message.contains("192")) ipAddress = message
                     }
                 }

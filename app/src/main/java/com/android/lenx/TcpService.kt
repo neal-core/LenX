@@ -6,11 +6,19 @@ import android.app.NotificationManager
 import android.app.Service
 import android.content.Intent
 import android.os.IBinder
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import java.net.Socket
+import kotlin.time.Duration.Companion.milliseconds
 
 class TcpService : Service() {
     private var socket: Socket? = null
     private var ipAddress: String = ""
+    private var serviceScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         intent?.getStringExtra("IP_ADDRESS")?.let {
@@ -31,9 +39,21 @@ class TcpService : Service() {
             .setSmallIcon(R.drawable.notification_icon)
             .build()
         startForeground(1, notification)
+        serviceScope.launch {
+            delay(5000.milliseconds);
+            if (socket == null || socket?.isConnected != true) {
+                showNotif("Connection Lost", "Failed to connect to other device. Connection timed out");
+                delay(3500.milliseconds);
+                MessageBus.send("disconnected");
+                stopSelf();
+            }
+
+        }
+
     }
 
     override fun onDestroy() {
+        serviceScope.cancel();
         try {
             socket?.close();
             socket = null;
@@ -41,6 +61,7 @@ class TcpService : Service() {
             e.printStackTrace();
         }
         MessageBus.send("disconnected");
+        showNotif("Disconnected", "Connection timed out or lost");
         super.onDestroy()
     }
 
@@ -58,7 +79,8 @@ class TcpService : Service() {
                 val currentSock = Socket(ipAddress, 8000);
                 socket = currentSock
                 if (currentSock.isConnected) {
-                    MessageBus.send("connected")
+                    MessageBus.send("connected");
+                    showNotif("Connected", "Linked to $ipAddress");
                 } else {
                     MessageBus.send("disconnected");
                     return@Thread;
@@ -74,11 +96,9 @@ class TcpService : Service() {
                     println("PC sent $message")
                     MessageBus.send(message)
                     if (message.contains("lenx", ignoreCase = true)) {
-                        showNotif("Your PC is 100%")
-                        break
+                        showNotif("Status Update", "Your PC is 100%")
                     } else if (message.contains("RAM")) {
-                        showNotif("PC RAM usage is too high: $message")
-                        break
+                        showNotif("System Alert", "PC RAM usage is too high: $message")
                     }
                 }
             } catch (e: Exception) {
@@ -97,10 +117,10 @@ class TcpService : Service() {
         manager.createNotificationChannel(channel)
     }
 
-    private fun showNotif(message: String) {
+    private fun showNotif(title: String, message: String) {
         val notification = Notification.Builder(this, "tcp_channel")
             .setSmallIcon(R.drawable.notification_icon)
-            .setContentTitle("Message From Your PC")
+            .setContentTitle(title)
             .setContentText(message)
             .setAutoCancel(true)
             .build()
