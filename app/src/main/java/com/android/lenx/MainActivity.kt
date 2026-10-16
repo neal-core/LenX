@@ -35,6 +35,7 @@ class MainActivity : ComponentActivity() {
                 var receivedMsg by remember { mutableStateOf("Waiting For PC...") }
                 var connected by remember { mutableStateOf(false) }
                 var ipAddress by remember { mutableStateOf("192.168.1.5") }
+                var batteryPercentage by remember { mutableStateOf(100) }
                 val context = LocalContext.current
                 val permissionLauncher = rememberLauncherForActivityResult(
                     contract = ActivityResultContracts.RequestPermission()
@@ -51,6 +52,10 @@ class MainActivity : ComponentActivity() {
                         receivedMsg = message
                         connected = if (message == "connected") true else if (message == "disconnected") false else connected;
                         if (message.contains("192")) ipAddress = message
+                        if (message.contains("Battery Status")) {
+                            val payload: Int = message.split(":")[1].filter { it.isDigit() }.toIntOrNull() ?: 100
+                            batteryPercentage = payload;
+                        }
                     }
                 }
                 AppNavigator(
@@ -59,6 +64,7 @@ class MainActivity : ComponentActivity() {
                         val intent = Intent(this, TcpService::class.java);
                         context.stopService(intent);
                     },
+                    batteryPercentage = batteryPercentage,
                     exposePort = {
                         if (ContextCompat.checkSelfPermission(
                                 context,

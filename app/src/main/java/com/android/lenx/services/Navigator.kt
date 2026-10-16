@@ -14,7 +14,7 @@ sealed class Screen(val route: String) {
 }
 
 @Composable
-fun AppNavigator(isConnected: Boolean, exposePort: (String) -> Unit, disconnect: () -> Unit) {
+fun AppNavigator(isConnected: Boolean, exposePort: (String) -> Unit, disconnect: () -> Unit, batteryPercentage: Int) {
     val navController = rememberNavController()
     NavHost(navController = navController, startDestination = Screen.Home.route) {
         composable(Screen.Home.route) {
@@ -22,7 +22,8 @@ fun AppNavigator(isConnected: Boolean, exposePort: (String) -> Unit, disconnect:
                 routeSettings = { navController.navigate(Screen.Settings.route) },
                 exposePort = exposePort,
                 isConnected = isConnected,
-                disconnect = disconnect
+                disconnect = disconnect,
+                batteryPercentage = batteryPercentage
             )
         }
         composable(Screen.Settings.route) {

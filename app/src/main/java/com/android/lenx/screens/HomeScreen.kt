@@ -52,7 +52,7 @@ import com.android.lenx.ui.theme.RedDisconnected
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun HomeScreen(routeSettings: () -> Unit, exposePort: (String) -> Unit, disconnect: () -> Unit, isConnected: Boolean) {
+fun HomeScreen(routeSettings: () -> Unit, exposePort: (String) -> Unit, disconnect: () -> Unit, isConnected: Boolean, batteryPercentage: Int) {
     var ipAddress by remember { mutableStateOf("192.168.1.5") }
 //    var isConnected by remember { mutableStateOf(false) };
     var isLocked by remember { mutableStateOf(false) };
@@ -89,7 +89,7 @@ fun HomeScreen(routeSettings: () -> Unit, exposePort: (String) -> Unit, disconne
             Column(modifier = Modifier.alpha(if (isConnected) 1f else 0.5f), verticalArrangement = Arrangement.spacedBy(16.dp)) {
                 homeComponents.StatusCard(
                     title = "Power & Battery",
-                    subtitle = "Plugged in • 100% charged",
+                    subtitle = "Plugged in • $batteryPercentage% charged",
                     icon = Icons.Default.BatteryChargingFull,
                     iconTint = PurpleAccent,
                     iconBg = PurpleAccent.copy(alpha = 0.1f),

@@ -6,6 +6,7 @@ import android.app.NotificationManager
 import android.app.Service
 import android.content.Intent
 import android.os.IBinder
+import android.util.Log
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -78,6 +79,8 @@ class TcpService : Service() {
                 }
                 val currentSock = Socket(ipAddress, 8000);
                 socket = currentSock
+                currentSock.keepAlive = true
+                currentSock.soTimeout = 5000;
                 if (currentSock.isConnected) {
                     MessageBus.send("connected");
                     showNotif("Connected", "Linked to $ipAddress");
@@ -85,24 +88,59 @@ class TcpService : Service() {
                     MessageBus.send("disconnected");
                     return@Thread;
                 }
-                val input = currentSock.getInputStream()
+                val input = currentSock.getInputStream();
+                val output = currentSock.getOutputStream();
                 val buffer = ByteArray(1024)
+                /*serviceScope.launch {
+                    while (true) {
+                        try {
+                            output.write("1\n".toByteArray())
+                            output.flush()
+                            println("sent heartbeat")
+
+                            delay(2500.milliseconds)
+                        } catch (e: Exception) {
+                            println("Heartbeat failed, ${e.message}");
+                            break
+                        }
+                    }
+                }*/
+
                 while (true) {
+                    output.write("handshake".toByteArray());
+                    output.flush();
                     val bytesRead = input.read(buffer)
                     if (bytesRead == -1) {
+                        MessageBus.send("disconnected");
+                        println("termination call: $bytesRead bytes")
+                        showNotif("Disconnected", "Connection lost")
                         break
                     }
                     val message = String(buffer, 0, bytesRead)
-                    println("PC sent $message")
+//                    showNotif("Message", "pc message: $message")
+                    if (message == "1") continue
                     MessageBus.send(message)
                     if (message.contains("lenx", ignoreCase = true)) {
                         showNotif("Status Update", "Your PC is 100%")
                     } else if (message.contains("RAM")) {
                         showNotif("System Alert", "PC RAM usage is too high: $message")
+                    } else if (message.contains("Battery Status")) {
+                        showNotif("System Alert", "PC Battery: ${message.split(":")[1]}");
+                        MessageBus.send(message);
                     }
                 }
+            } catch (e: java.net.SocketTimeoutException) {
+                println("TCP Timeout");
+                MessageBus.send("disconnected");
+                showNotif("disconnected", "PC timed out")
             } catch (e: Exception) {
-                e.printStackTrace()
+                e.printStackTrace();
+                MessageBus.send("disconnected")
+            } finally {
+                try {
+                    socket?.close();
+                    socket = null;
+                } catch (_: Exception) {}
             }
         }.start()
     }
