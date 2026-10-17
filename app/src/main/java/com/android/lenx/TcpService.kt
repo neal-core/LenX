@@ -32,6 +32,7 @@ class TcpService : Service() {
     private var ipAddress: String = ""
     private var serviceScope: CoroutineScope? = null
     private var mediaPlayer: MediaPlayer? = null
+    private var lowBatteryStatus: Boolean = false
     @RequiresApi(Build.VERSION_CODES.Q)
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         createNotificationChannel()
@@ -74,10 +75,12 @@ class TcpService : Service() {
     override fun onCreate() {
         super.onCreate()
         serviceScope = CoroutineScope(Dispatchers.IO + SupervisorJob());
+        if (lowBatteryStatus) lowBatteryStatus = false
     }
 
     override fun onDestroy() {
         super.onDestroy()
+        lowBatteryStatus = false
         mediaPlayer?.stop()
         mediaPlayer?.release()
         mediaPlayer = null
@@ -143,6 +146,13 @@ class TcpService : Service() {
                         showNotif("System Alert", "PC RAM usage is too high: $message")
                     } else if (message.contains("Battery Status")) {
                         showNotif("System Alert", "PC Battery: ${message.split(":")[1]}");
+                        val batteryPercent: Int = message.split(":")[1].filter { it.isDigit() }.toInt()
+                        if (batteryPercent == 100) {
+                            showNotif("System Alert", "PC Battery is fully charged. Please disconnect the charger")
+                        } else if (batteryPercent <= 30 && !lowBatteryStatus) {
+                            showNotif("System Alert", "Your PC battery is running low. Please connect the charger")
+                            lowBatteryStatus = true
+                        }
                         MessageBus.send(message);
                     }
 //                    output.write("1\n".toByteArray());
@@ -159,7 +169,6 @@ class TcpService : Service() {
                 MessageBus.send("disconnected")
             } finally {
                 try {
-                    println("closing up socket")
                     socket?.close();
                     socket = null;
                 } catch (_: Exception) {}
