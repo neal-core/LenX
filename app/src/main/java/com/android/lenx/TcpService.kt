@@ -4,44 +4,53 @@ import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.Service
+import android.content.Context
 import android.content.Intent
+import android.content.pm.ServiceInfo
+import android.media.MediaPlayer
+import android.net.ConnectivityManager
+import android.net.NetworkCapabilities
+import android.net.wifi.WifiManager
+import android.os.Build
 import android.os.IBinder
+import android.os.PowerManager
 import android.util.Log
+import androidx.annotation.RequiresApi
+import androidx.core.app.ServiceCompat
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import java.net.InetSocketAddress
 import java.net.Socket
 import kotlin.time.Duration.Companion.milliseconds
 
 class TcpService : Service() {
     private var socket: Socket? = null
     private var ipAddress: String = ""
-    private var serviceScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
-
+    private var serviceScope: CoroutineScope? = null
+    private var mediaPlayer: MediaPlayer? = null
+    @RequiresApi(Build.VERSION_CODES.Q)
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        intent?.getStringExtra("IP_ADDRESS")?.let {
-            if (it.isNotEmpty()) {
-                ipAddress = it
-            }
-        }
-        connectToPC()
-        return super.onStartCommand(intent, flags, startId)
-    }
-
-    override fun onCreate() {
-        super.onCreate()
         createNotificationChannel()
         val notification = Notification.Builder(this, "tcp_channel")
             .setContentTitle("PC Connection")
-            .setContentText("Waiting...")
+            .setContentText("Listening...")
             .setSmallIcon(R.drawable.notification_icon)
             .build()
-        startForeground(1, notification)
-        serviceScope.launch {
-            delay(5000.milliseconds);
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+            ServiceCompat.startForeground(this, 1, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK)
+        } else {
+            startForeground(1, notification)
+        }
+        silentMP()
+        /*val powerManager = getSystemService(POWER_SERVICE) as PowerManager;
+        wakeLock = powerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "LenX::TcpServiceWakeLock")
+        wakeLock?.acquire(10*60*1000L);*/
+        /*serviceScope?.launch {
+            delay(20000.milliseconds);
             if (socket == null || socket?.isConnected != true) {
                 showNotif("Connection Lost", "Failed to connect to other device. Connection timed out");
                 delay(3500.milliseconds);
@@ -49,21 +58,39 @@ class TcpService : Service() {
                 stopSelf();
             }
 
+        }*/
+        intent?.getStringExtra("IP_ADDRESS")?.let {
+            if (it.isNotEmpty()) {
+                ipAddress = it
+            }
         }
+        if (socket == null || socket?.isClosed == true) {
+            connectToPC()
+        }
+//        return super.onStartCommand(intent, flags, startId)
+        return START_STICKY
+    }
 
+    override fun onCreate() {
+        super.onCreate()
+        serviceScope = CoroutineScope(Dispatchers.IO + SupervisorJob());
     }
 
     override fun onDestroy() {
-        serviceScope.cancel();
+        super.onDestroy()
+        mediaPlayer?.stop()
+        mediaPlayer?.release()
+        mediaPlayer = null
+        serviceScope?.cancel();
         try {
             socket?.close();
             socket = null;
         } catch (e: Exception) {
             e.printStackTrace();
         }
+        println("Closed socket")
         MessageBus.send("disconnected");
         showNotif("Disconnected", "Connection timed out or lost");
-        super.onDestroy()
     }
 
     override fun onBind(p0: Intent?): IBinder? {
@@ -71,44 +98,35 @@ class TcpService : Service() {
     }
 
     private fun connectToPC() {
-        Thread {
+        serviceScope?.launch(Dispatchers.IO) {
+            android.os.Process.setThreadPriority(android.os.Process.THREAD_PRIORITY_URGENT_AUDIO)
             try {
                 println("IP:: $ipAddress")
                 if (ipAddress.isEmpty()) {
-                    return@Thread
+                    return@launch
                 }
-                val currentSock = Socket(ipAddress, 8000);
+                val currentSock = Socket().apply {
+                    keepAlive = true
+                    tcpNoDelay = true
+                    connect(InetSocketAddress(ipAddress, 8000), 5000)
+                }
                 socket = currentSock
-                currentSock.keepAlive = true
-                currentSock.soTimeout = 5000;
+                currentSock.soTimeout = 10000;
                 if (currentSock.isConnected) {
                     MessageBus.send("connected");
                     showNotif("Connected", "Linked to $ipAddress");
                 } else {
                     MessageBus.send("disconnected");
-                    return@Thread;
+                    return@launch;
                 }
                 val input = currentSock.getInputStream();
                 val output = currentSock.getOutputStream();
                 val buffer = ByteArray(1024)
-                /*serviceScope.launch {
-                    while (true) {
-                        try {
-                            output.write("1\n".toByteArray())
-                            output.flush()
-                            println("sent heartbeat")
-
-                            delay(2500.milliseconds)
-                        } catch (e: Exception) {
-                            println("Heartbeat failed, ${e.message}");
-                            break
-                        }
-                    }
-                }*/
+                output.write("handshake".toByteArray());
+                output.flush();
 
                 while (true) {
-                    output.write("handshake".toByteArray());
-                    output.flush();
+
                     val bytesRead = input.read(buffer)
                     if (bytesRead == -1) {
                         MessageBus.send("disconnected");
@@ -119,7 +137,6 @@ class TcpService : Service() {
                     val message = String(buffer, 0, bytesRead)
 //                    showNotif("Message", "pc message: $message")
                     if (message == "1") continue
-                    MessageBus.send(message)
                     if (message.contains("lenx", ignoreCase = true)) {
                         showNotif("Status Update", "Your PC is 100%")
                     } else if (message.contains("RAM")) {
@@ -128,21 +145,26 @@ class TcpService : Service() {
                         showNotif("System Alert", "PC Battery: ${message.split(":")[1]}");
                         MessageBus.send(message);
                     }
+//                    output.write("1\n".toByteArray());
                 }
-            } catch (e: java.net.SocketTimeoutException) {
+            } catch (_: java.net.SocketTimeoutException) {
                 println("TCP Timeout");
                 MessageBus.send("disconnected");
-                showNotif("disconnected", "PC timed out")
+                showNotif("Disconnected", "PC timed out")
             } catch (e: Exception) {
-                e.printStackTrace();
+                println("Error from ${e.javaClass.name} - ${e.message}")
+                MessageBus.send("disconnected")
+            } catch (e: java.net.SocketException) {
+                println("Killed by OS: ${e.message}")
                 MessageBus.send("disconnected")
             } finally {
                 try {
+                    println("closing up socket")
                     socket?.close();
                     socket = null;
                 } catch (_: Exception) {}
             }
-        }.start()
+        }
     }
 
     private fun createNotificationChannel() {
@@ -163,6 +185,17 @@ class TcpService : Service() {
             .setAutoCancel(true)
             .build()
         val manager = getSystemService(NotificationManager::class.java)
-        manager.notify(1, notification)
+        manager.notify(2, notification)
+    }
+    private fun silentMP() {
+        try {
+            mediaPlayer = MediaPlayer.create(this, R.raw.calma)?.apply {
+                isLooping = true
+                setVolume(0.4f, 0.4f)
+                start()
+            }
+        } catch (e: Exception) {
+            Log.d("Audioplayer", "Error: ${e.message}")
+        }
     }
 }

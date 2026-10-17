@@ -23,6 +23,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.core.content.ContextCompat
 import com.android.lenx.services.AppNavigator
+import com.android.lenx.services.requestOptim
 import com.android.lenx.ui.theme.LenXTheme
 
 class MainActivity : ComponentActivity() {
@@ -44,6 +45,7 @@ class MainActivity : ComponentActivity() {
                         val intent = Intent(context, TcpService::class.java).apply {
                             putExtra("IP_ADDRESS", ipAddress)
                         }
+                        requestOptim(context)
                         context.startForegroundService(intent)
                     }
                 }
@@ -76,6 +78,7 @@ class MainActivity : ComponentActivity() {
                             val intent = Intent(context, TcpService::class.java).apply {
                                 putExtra("IP_ADDRESS", it)
                             }
+                            requestOptim(context)
                             context.startForegroundService(intent)
                         }
                     }

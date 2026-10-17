@@ -101,7 +101,7 @@ class HomeComponents {
 
     @Composable
     fun StatusCard(title: String, subtitle: String, icon: ImageVector, iconTint: Color, iconBg: Color, modifier: Modifier = Modifier) {
-        Card(shape = RoundedCornerShape(16.dp), colors = CardDefaults.cardColors(containerColor = CardColor), modifier = modifier.fillMaxSize()) {
+        Card(shape = RoundedCornerShape(16.dp), colors = CardDefaults.cardColors(containerColor = CardColor), modifier = modifier.fillMaxWidth()) {
             Row(modifier = Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
                 Box(modifier = Modifier.size(48.dp).clip(CircleShape).background(iconBg), contentAlignment = Alignment.Center) {
                     Icon(imageVector = icon, contentDescription = title, tint = iconTint, modifier = Modifier.size(24.dp));
