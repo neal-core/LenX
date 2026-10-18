@@ -4,16 +4,11 @@ import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.Service
-import android.content.Context
 import android.content.Intent
 import android.content.pm.ServiceInfo
 import android.media.MediaPlayer
-import android.net.ConnectivityManager
-import android.net.NetworkCapabilities
-import android.net.wifi.WifiManager
 import android.os.Build
 import android.os.IBinder
-import android.os.PowerManager
 import android.util.Log
 import androidx.annotation.RequiresApi
 import androidx.core.app.ServiceCompat
@@ -47,22 +42,31 @@ class TcpService : Service() {
             startForeground(1, notification)
         }
         silentMP()
-        /*val powerManager = getSystemService(POWER_SERVICE) as PowerManager;
+        /*val powerManager = getSystemService(POWER_SERVICE) as PowerManager
         wakeLock = powerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "LenX::TcpServiceWakeLock")
-        wakeLock?.acquire(10*60*1000L);*/
+        wakeLock?.acquire(10*60*1000L)*/
         /*serviceScope?.launch {
-            delay(20000.milliseconds);
+            delay(20000.milliseconds)
             if (socket == null || socket?.isConnected != true) {
-                showNotif("Connection Lost", "Failed to connect to other device. Connection timed out");
-                delay(3500.milliseconds);
-                MessageBus.send("disconnected");
-                stopSelf();
+                showNotif("Connection Lost", "Failed to connect to other device. Connection timed out"
+                delay(3500.milliseconds)
+                MessageBus.send("disconnected")
+                stopSelf()
             }
 
         }*/
         intent?.getStringExtra("IP_ADDRESS")?.let {
             if (it.isNotEmpty()) {
                 ipAddress = it
+            }
+        }
+        serviceScope?.launch() {
+            delay(5000.milliseconds)
+            if (socket?.isClosed == true || socket == null) {
+                showNotif("Connection Timed Out", "Failed to connect to other device.")
+                delay(2500.milliseconds)
+                MessageBus.send("disconnected")
+                stopSelf()
             }
         }
         if (socket == null || socket?.isClosed == true) {
@@ -74,7 +78,7 @@ class TcpService : Service() {
 
     override fun onCreate() {
         super.onCreate()
-        serviceScope = CoroutineScope(Dispatchers.IO + SupervisorJob());
+        serviceScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
         if (lowBatteryStatus) lowBatteryStatus = false
     }
 
@@ -84,16 +88,16 @@ class TcpService : Service() {
         mediaPlayer?.stop()
         mediaPlayer?.release()
         mediaPlayer = null
-        serviceScope?.cancel();
+        serviceScope?.cancel()
         try {
-            socket?.close();
-            socket = null;
+            socket?.close()
+            socket = null
         } catch (e: Exception) {
-            e.printStackTrace();
+            e.printStackTrace()
         }
         println("Closed socket")
-        MessageBus.send("disconnected");
-        showNotif("Disconnected", "Connection timed out or lost");
+        MessageBus.send("disconnected")
+        showNotif("Disconnected", "Connection timed out or lost")
     }
 
     override fun onBind(p0: Intent?): IBinder? {
@@ -114,25 +118,25 @@ class TcpService : Service() {
                     connect(InetSocketAddress(ipAddress, 8000), 5000)
                 }
                 socket = currentSock
-                currentSock.soTimeout = 10000;
+                currentSock.soTimeout = 10000
                 if (currentSock.isConnected) {
-                    MessageBus.send("connected");
-                    showNotif("Connected", "Linked to $ipAddress");
+                    MessageBus.send("connected")
+                    showNotif("Connected", "Linked to $ipAddress")
                 } else {
-                    MessageBus.send("disconnected");
-                    return@launch;
+                    MessageBus.send("disconnected")
+                    return@launch
                 }
-                val input = currentSock.getInputStream();
-                val output = currentSock.getOutputStream();
+                val input = currentSock.getInputStream()
+                val output = currentSock.getOutputStream()
                 val buffer = ByteArray(1024)
-                output.write("handshake".toByteArray());
-                output.flush();
+                output.write("handshake".toByteArray())
+                output.flush()
 
                 while (true) {
 
                     val bytesRead = input.read(buffer)
                     if (bytesRead == -1) {
-                        MessageBus.send("disconnected");
+                        MessageBus.send("disconnected")
                         println("termination call: $bytesRead bytes")
                         showNotif("Disconnected", "Connection lost")
                         break
@@ -145,32 +149,32 @@ class TcpService : Service() {
                     } else if (message.contains("RAM")) {
                         showNotif("System Alert", "PC RAM usage is too high: $message")
                     } else if (message.contains("Battery Status")) {
-                        showNotif("System Alert", "PC Battery: ${message.split(":")[1]}");
                         val batteryPercent: Int = message.split(":")[1].filter { it.isDigit() }.toInt()
+                        if (batteryPercent > 100) continue
                         if (batteryPercent == 100) {
                             showNotif("System Alert", "PC Battery is fully charged. Please disconnect the charger")
                         } else if (batteryPercent <= 30 && !lowBatteryStatus) {
                             showNotif("System Alert", "Your PC battery is running low. Please connect the charger")
                             lowBatteryStatus = true
                         }
-                        MessageBus.send(message);
+                        MessageBus.send(message)
                     }
-//                    output.write("1\n".toByteArray());
+//                    output.write("1\n".toByteArray())
                 }
             } catch (_: java.net.SocketTimeoutException) {
-                println("TCP Timeout");
-                MessageBus.send("disconnected");
+                Log.e("TcpService","TCP Timeout")
+                MessageBus.send("disconnected")
                 showNotif("Disconnected", "PC timed out")
             } catch (e: Exception) {
-                println("Error from ${e.javaClass.name} - ${e.message}")
+                Log.e("TcpService", "Error from ${e.javaClass.name} - ${e.message}")
                 MessageBus.send("disconnected")
             } catch (e: java.net.SocketException) {
-                println("Killed by OS: ${e.message}")
+                Log.e("TcpService", "Killed by OS: ${e.message}")
                 MessageBus.send("disconnected")
             } finally {
                 try {
-                    socket?.close();
-                    socket = null;
+                    socket?.close()
+                    socket = null
                 } catch (_: Exception) {}
             }
         }
